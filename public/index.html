@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Namaz Vakitleri - Frankenthal</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+      }
+      #current-time,
+      #current-prayer,
+      #next-prayer {
+        margin: 10px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Frankenthal Namaz Vakitleri</h1>
+    <div id="current-time"></div>
+    <div id="current-prayer"></div>
+    <div id="next-prayer"></div>
+
+    <script>
+      async function getPrayerTimes() {
+        const response = await fetch(
+          "https://api.aladhan.com/v1/timingsByCity?city=Frankenthal&country=Germany"
+        );
+        const data = await response.json();
+        return data.data.timings;
+      }
+
+      function formatTime(time) {
+        const [hours, minutes] = time.split(":");
+        return new Date(new Date().setHours(hours, minutes, 0, 0));
+      }
+
+      function getTimeDifference(start, end) {
+        const diff = end - start;
+        const hours = Math.floor((diff % 86400000) / 3600000);
+        const minutes = Math.round(((diff % 86400000) % 3600000) / 60000);
+        return { hours, minutes, text: `${hours} saat ${minutes} dakika` };
+      }
+
+      async function notifyIf15MinutesLeft(prayerName) {
+        try {
+          await fetch("https://namaz-reminder.glitch.me/notify", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ prayerName }),
+          });
+
+          console.log(
+            `${prayerName} için 15 dakika kaldı bildirimi gönderildi.`
+          );
+        } catch (error) {
+          console.error("Bildirim gönderilemedi:", error);
+        }
+      }
+
+      async function pingServer() {
+        try {
+          await fetch("https://namaz-reminder.glitch.me/ping"); // Glitch projenizin ping endpoint'i
+          console.log("Sunucuya istek gönderildi.");
+        } catch (error) {
+          console.error("Sunucuya istek gönderilemedi:", error);
+        }
+      }
+
+      async function updatePrayerTimes() {
+        const timings = await getPrayerTimes();
+        const currentTime = new Date();
+        document.getElementById(
+          "current-time"
+        ).textContent = `Şu anki saat: ${currentTime.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}`;
+
+        const prayerTimes = {
+          Sabah: formatTime(timings.Fajr),
+          Güneş: formatTime(timings.Sunrise),
+          Öğle: formatTime(timings.Dhuhr),
+          İkindi: formatTime(timings.Asr),
+          Akşam: formatTime(timings.Maghrib),
+          Yatsı: formatTime(timings.Isha),
+        };
+
+        let currentPrayer = "";
+        let nextPrayer = "";
+        let nextPrayerTime = null;
+
+        if (
+          currentTime >= prayerTimes.Sabah &&
+          currentTime < prayerTimes.Güneş
+        ) {
+          currentPrayer = "Sabah vakti";
+          nextPrayer = "Öğle";
+          nextPrayerTime = prayerTimes["Öğle"];
+        } else if (
+          currentTime >= prayerTimes.Güneş &&
+          currentTime < prayerTimes.Öğle
+        ) {
+          currentPrayer = "Sabah kaza vakti";
+          nextPrayer = "Öğle";
+          nextPrayerTime = prayerTimes["Öğle"];
+        } else if (
+          currentTime >= prayerTimes.Öğle &&
+          currentTime < prayerTimes.İkindi
+        ) {
+          currentPrayer = "Öğle vakti";
+          nextPrayer = "İkindi";
+          nextPrayerTime = prayerTimes["İkindi"];
+        } else if (
+          currentTime >= prayerTimes.İkindi &&
+          currentTime < prayerTimes.Akşam
+        ) {
+          currentPrayer = "İkindi vakti";
+          nextPrayer = "Akşam";
+          nextPrayerTime = prayerTimes["Akşam"];
+        } else if (
+          currentTime >= prayerTimes.Akşam &&
+          currentTime < prayerTimes.Yatsı
+        ) {
+          currentPrayer = "Akşam vakti";
+          nextPrayer = "Yatsı";
+          nextPrayerTime = prayerTimes["Yatsı"];
+        } else if (currentTime >= prayerTimes.Yatsı) {
+          currentPrayer = "Yatsı vakti";
+          nextPrayer = "Gece yarısı";
+          nextPrayerTime = new Date(new Date().setHours(23, 59, 59, 999));
+        }
+
+        document.getElementById(
+          "current-prayer"
+        ).textContent = `Şu anki vakit: ${currentPrayer}`;
+        document.getElementById(
+          "next-prayer"
+        ).textContent = `Sonraki vakit: ${nextPrayer}, kalan süre: ${
+          getTimeDifference(currentTime, nextPrayerTime).text
+        }`;
+
+        const timeDifference = getTimeDifference(currentTime, nextPrayerTime);
+        if (timeDifference.hours === 0 && (timeDifference.minutes === 45 || timeDifference.minutes === 15)) {
+          notifyIf15MinutesLeft(currentPrayer);
+        }
+      }
+
+      updatePrayerTimes();
+      setInterval(updatePrayerTimes, 60000); // 1 dakikada bir güncelle
+      setInterval(pingServer, 240000); // 4 dakikada bir sunucuya istek gönder
+    </script>
+  </body>
+</html>
