@@ -3,6 +3,24 @@ const { Telegraf } = require("telegraf");
 const schedule = require("node-schedule");
 require("dotenv").config();
 
+const express = require("express");
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Botunuzun geri kalan kodları burada çalışmaya devam edebilir.
+// Telegram botu başlatma kodlarınız burada olmalı.
+
+// Basit bir endpoint, Render'ın aktif olduğunuzu anlaması için:
+app.get("/", (req, res) => {
+    res.send("Telegram bot is running");
+});
+
+// Sunucuyu başlatın
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
+
+
 // Telegram botu oluşturma
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 const chatId = process.env.TELEGRAM_CHAT_ID; // Telegram grup ID'si
