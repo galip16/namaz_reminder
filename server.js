@@ -8,26 +8,21 @@ const express = require("express");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Basit bir endpoint, Render'ın aktif olduğunuzu anlaması için:
 app.get("/", (req, res) => {
     res.send("Telegram bot is running");
 });
 
-// Sunucuyu başlatın
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 
-// Telegram botu oluşturma
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
-const chatId = process.env.TELEGRAM_CHAT_ID; // Telegram grup ID'si
+const chatId = process.env.TELEGRAM_CHAT_ID;
 
-// API bağlantısı ve konfigürasyonu
 const city = "Frankenthal";
-const country = "DE"; // Almanya
+const country = "DE";
 const prayerApiUrl = `https://api.aladhan.com/v1/timingsByCity?city=${city}&country=${country}`;
 
-// API'den gelen İngilizce vakit isimlerini Türkçe karşılıklarına çevirme
 const prayerNamesTr = {
     Fajr: "Sabah",
     Sunrise: "Güneş",
@@ -37,30 +32,29 @@ const prayerNamesTr = {
     Isha: "Yatsı"
 };
 
-// Namaz vakitlerine göre bildirim gönderme
 async function getPrayerTimes() {
     try {
         const response = await axios.get(prayerApiUrl);
         return response.data.data.timings;
     } catch (error) {
         console.error("Namaz vakitleri alınamadı:", error);
+        return null;
     }
 }
 
-// Hatırlatma bildirimlerini planlama
 async function scheduleNotifications() {
     const prayerTimes = await getPrayerTimes();
     if (!prayerTimes) return;
 
-    const timezone = "Europe/Berlin";  // Berlin saat dilimi
+    const timezone = "Europe/Berlin";
     const now = moment().tz(timezone);
 
     const notificationTimes = {
-        Sabah: moment.tz(prayerTimes.Sunrise, "HH:mm", timezone).subtract(15, "minutes"),
-        Öğle: moment.tz(prayerTimes.Asr, "HH:mm", timezone).subtract(15, "minutes"),
-        İkindi: moment.tz(prayerTimes.Maghrib, "HH:mm", timezone).subtract(15, "minutes"),
-        Akşam: moment.tz(prayerTimes.Isha, "HH:mm", timezone).subtract(15, "minutes"),
-        Yatsı: moment.tz("23:00", "HH:mm", timezone)
+        Sabah: moment.tz(prayerTimes.Fajr, "HH:mm", timezone).subtract(15, "minutes"),
+        Öğle: moment.tz(prayerTimes.Dhuhr, "HH:mm", timezone).subtract(15, "minutes"),
+        İkindi: moment.tz(prayerTimes.Asr, "HH:mm", timezone).subtract(15, "minutes"),
+        Akşam: moment.tz(prayerTimes.Maghrib, "HH:mm", timezone).subtract(15, "minutes"),
+        Yatsı: moment.tz(prayerTimes.Isha, "HH:mm", timezone).subtract(15, "minutes")
     };
 
     Object.entries(notificationTimes).forEach(([prayerName, notificationTime]) => {
@@ -79,11 +73,12 @@ async function scheduleNotifications() {
     });
 }
 
-// Botu başlatma
 bot.launch();
 
-// Günlük olarak namaz vakitlerini güncelleme ve bildirimleri ayarlama
 schedule.scheduleJob("0 0 * * *", scheduleNotifications);
-scheduleNotifications(); // İlk çalışma anında da çalıştır
+scheduleNotifications();
+
+process.once("SIGINT", () => bot.stop("SIGINT"));
+process.once("SIGTERM", () => bot.stop("SIGTERM"));
 
 console.log("Namaz vakti bildirici bot çalışıyor.");
