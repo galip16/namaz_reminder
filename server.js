@@ -68,7 +68,7 @@ async function scheduleNotifications() {
             const message =
                 prayerName === "Yatsı"
                     ? "Uyumadan önce Yatsı namazını kılmayı unutma!"
-                    : `Dikkat! ${prayerName} namazı 15 dakika içinde girecek.`;
+                    : `Dikkat! ${prayerName} namazı 15 dakika içinde çıkacak. Acele et!!!`;
 
             schedule.scheduleJob(notificationTime.toDate(), () => {
                 bot.telegram.sendMessage(chatId, message);
